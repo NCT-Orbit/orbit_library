@@ -3,11 +3,8 @@ import roslibpy
 class RosbridgeClient:
     
     def __init__(self, host='localhost', port= 9090):
-        
-        self.client = roslibpy.Ros(host='localhost', port=9090)
-        self.client.on('connection', self.on_connection)
-        self.client.on('error', self.on_error)
-        self.client.on('close', self.on_close)
+        self.host = host
+        self.port = port
 
 # Bağlantı durumu için event listener'lar
     def on_connection(self):
@@ -21,10 +18,15 @@ class RosbridgeClient:
     
     def start(self):
         try:
-            self.client.run_forever()
-        except KeyboardInterrupt:
-            print("Bağlantı kapatılıyor...")
-            self.client.terminate()
+            self.client = roslibpy.Ros(host=self.host, port=self.port)
+            self.client.run()
+            if self.client.is_connected:
+                return True
+            else:
+                return False
+        except Exception as e:
+            print(f"Bağlantı hatası: {e}")
+            return False
 
     def create_listener(self, topic_name, message_type,callback):
         listener= roslibpy.Topic(self.client, topic_name, message_type)
@@ -35,4 +37,7 @@ class RosbridgeClient:
     def create_publisher(self, topic_name, message_type):
         publisher = roslibpy.Topic(self.client,topic_name,message_type)
         return publisher
+    
+    def terminate(self):
+        self.client.terminate()
 
