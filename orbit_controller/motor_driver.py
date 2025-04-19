@@ -4,6 +4,7 @@ from math import atan2, sin, cos
 import math 
 import roslibpy
 
+
 class Controller:
     def __init__(self,host= 'localhost',port=9090):
         self.host = host
@@ -12,16 +13,24 @@ class Controller:
         self.max_speed = 1.0
         self.current_position= None
         self.current_temp = None
-        
+        self.position_msg = None
 
     def connect(self):
         self.ros_client = RosbridgeClient(self.host,self.port)
         if self.ros_client.start():
             print("Bağlantı başarılı.")
+        
         else:
             raise Exception("Bağlantı hatası.")
+        
+    
+        
     def move_forward(self,speed:float):
-        """ Robot burada ileri gidecek """
+        """ 
+        
+        Girilen hiz(speed) degerine gore ileri yonde hareket eder.
+                
+        """
         
 
         publisher =self.ros_client.create_publisher(topic_name='/cmd_vel', message_type='geometry_msgs/Twist')
@@ -39,7 +48,11 @@ class Controller:
         
     
     def move_backward(self,speed:float):
-        """ Robot burada geriye gidecek.  """
+        """ Robot burada geriye gidecek.  
+        
+        Girilen hiz(speed) degerine gore geri yonde hareket eder.
+
+        """
 
         publisher =self.ros_client.create_publisher(topic_name='/cmd_vel', message_type='geometry_msgs/Twist')
         if speed < 0.0 or speed > self.max_speed:
@@ -56,8 +69,12 @@ class Controller:
         
             
       
-    def stop_the_car(self):
-        """ Robot burada duracak."""
+    def stop_the_vehicle(self):
+        """ Robot burada duracak.
+        
+        Robotu durdurur.
+        
+        """
 
         publisher =self.ros_client.create_publisher(topic_name='/cmd_vel', message_type='geometry_msgs/Twist')
         
@@ -74,7 +91,11 @@ class Controller:
         
 
     def turn_right(self):
-        """Robot burada 90 derece dönüş yapacak"""
+        """Robot burada 90 derece dönüş yapacak
+        
+        Robotun 90 derece (1.57 radian) sag tarafa donusunu saglar.
+        
+        """
         
 
         publisher = self.ros_client.create_publisher(topic_name= '/cmd_vel',message_type='geometry_msgs/Twist')
@@ -89,7 +110,11 @@ class Controller:
         
 
     def turn_left(self):
-        """"Robot burada sola dönecek"""
+        """"Robot burada sola dönecek
+        
+        Robotun 90 derece (1.57 radian) sol tarafa donusunu saglar.
+        
+        """
         
         publisher = self.ros_client.create_publisher(topic_name='/cmd_vel', message_type='geometry_msgs/Twist')
         
@@ -102,20 +127,12 @@ class Controller:
         
         
 
-    def get_distance(self,pos1,pos2):
-        return math.sqrt((pos1['x']- pos2['x'])**2 + (pos1['y']-pos2['y'])**2)
-    
-    
-    def update_position(self, message):
-        """ Callback function to update the current position from /odom topic """
-        if 'pose' in message and 'pose' in message['pose']:  
-            position = message['pose']['pose']['position']
-            self.current_position = {'x': position['x'], 'y': position['y']}
-
-    
-
     def move_forward_steps(self,distance):
-        """Robot burada girilen mesafe kadar hareket edecek."""
+        """
+        
+        Robot girilen mesafe(distance) degeri kadar ileri yonde hareket eder.
+        
+        """
 
         self.publisher_ = self.ros_client.create_publisher(topic_name='/move_forward_topic',message_type='/std_msgs/msg/Float32')
         
@@ -127,17 +144,74 @@ class Controller:
         
         
     def move_backward_steps(self,distance_b):
-        """Robot burada girilen mesafe kadar hareket edecek."""
+        """
+        
+        Robot burada girilen mesafe(distance) degeri kadar geri yonde hareket eder .
+        
+        
+        """
   
         vel_pub = self.ros_client.create_publisher(topic_name='/move_backward_topic',message_type='/std_msgs/msg/Float32')
         backward_msg = {'data' : distance_b}
         vel_pub.publish(backward_msg)
         print("backward distance gönderildi.")
+          
         
+    def turn_right_position(self,speed, use_degree=False):
+        """
         
+        Hız değerini radyan olarak [0.0, 6.28] aralığında; hız değerini derece olarak [0,360] derece aralığında girin.
+        
+        Girilen hiz degeri kadar sag tarafa donus yapar.
+        
+        """
+        
+        if use_degree:
+            speed = (math.pi/180)*speed
+            print(f'speed : {speed}')
+        else:
+            if speed< 0.0 or speed> 6.28:
+                raise Exception("Hız değeri : Out of range ")
+     
+        self.publish_message(-speed)
     
-    def get_position(self):
-        self.ros_client
+        
+    def turn_left_position(self,speed, use_degree = False):
+        """
+        
+        Hız değerini radyan olarak [0.0, 6.28] aralığında; hız değerini derece olarak [0,360] derece aralığında girin.
+        
+        Girilen hiz degeri kadar sol tarafa donus yapar.
+
+        
+        """
+             
+        if use_degree:
+            speed = (math.pi/180)*speed
+            print(f'speed : {speed}')
+        else:
+            if speed< 0.0 or speed> 6.28:
+                raise Exception("Hız değeri : Out of range ")
+     
+        self.publish_message(speed)
+    
+    def publish_message(self,angular_speed):
+        publisher = self.ros_client.create_publisher(topic_name='/angular_speed',message_type='std_msgs/msg/Float32')
+           
+        message = {'data': angular_speed}
+     
+        publisher.publish(message)
+        print('mesaj yayınlandı')
+    
+    
+    def tf_data(self):
+        """
+        
+        Robotun posizyonunun hesaplanmasi icin tf fonksiyonlarini cikarir. 
+        
+        """
+        self.ros_client.start()
+        
         def callback_tf(message):
             self.current_position= {}
             if 'transforms' in message:
@@ -176,53 +250,42 @@ class Controller:
 
         subscriber = self.ros_client.create_listener(topic_name='tf', message_type='tf2_msgs/TFMessage',callback=callback_tf)
         
-    def publish_position(self):
-            if self.current_position is not None:
-                try:
-                    # Create a proper message to publish
-                    position_msg = {
-                        'data': [
-                            self.current_position['translation']['x'],
-                            self.current_position['translation']['y'],
-                            self.current_position['translation']['z'],
-                            self.current_position['rotation']['x'],
-                            self.current_position['rotation']['y'],
-                            self.current_position['rotation']['z'],
-                            self.current_position['rotation']['w']
-                        ]
-                    }
-                    self.position_publisher = self.ros_client.create_publisher(topic_name='/tf_topic', message_type='tf2_msgs/TFMessage')
-                    self.position_publisher.publish(position_msg)
-                except Exception as e:
-                    pass 
-    def turn_right_position(self,speed, use_degree=False):
-        "Hız değerini radyan olarak [0.0, 6.28] aralığında; hız değerini derece olarak [0,360] derece aralığında girin."
-             
-        if use_degree:
-            speed = (math.pi/180)*speed
-            print(f'speed : {speed}')
-        else:
-            if speed< 0.0 or speed> 6.28:
-                raise Exception("Hız değeri : Out of range ")
-     
-        self.publish_message(-speed)
+        
+    def get_position(self):
+        """
+        
+        Robotun pozisyon bilgilerini donme ve yonelim olarak dondurur.
+        
+        """
+        if self.current_position is not None:
+            try:
+                # Create a proper message to publish
+                self.position_msg = {
+                    'data': [
+                        self.current_position['translation']['x'],
+                        self.current_position['translation']['y'],
+                        self.current_position['translation']['z'],
+                        self.current_position['rotation']['x'],
+                        self.current_position['rotation']['y'],
+                        self.current_position['rotation']['z'],
+                        self.current_position['rotation']['w']
+                    ]
+                }
+                # self.position_publisher = self.ros_client.create_publisher(topic_name='/tf_topic', message_type='tf2_msgs/TFMessage')
+                # self.position_publisher.publish(self.position_msg)
+            except Exception as e:
+                pass 
     
-        
-    def turn_left_position(self,speed, use_degree = False):
-        "Hız değerini radyan olarak [0.0, 6.28] aralığında; hız değerini derece olarak [0,360] derece aralığında girin."
-             
-        if use_degree:
-            speed = (math.pi/180)*speed
-            print(f'speed : {speed}')
-        else:
-            if speed< 0.0 or speed> 6.28:
-                raise Exception("Hız değeri : Out of range ")
-     
-        self.publish_message(speed)
-        
+    
     
     
     def reset_position(self):
+        """
+        
+        Robot oldugu konumu sifirlar.
+
+        
+        """
         publisher_request=self.ros_client.create_publisher(topic_name='/reset_request',message_type='std_msgs/msg/Float32')
         
         reset_msg = {'data': 5}
@@ -230,19 +293,13 @@ class Controller:
         publisher_request.publish(reset_msg)
         print("mesaj alındı mı")
              
-    
-
-    def publish_message(self,angular_speed):
-        publisher = self.ros_client.create_publisher(topic_name='/angular_speed',message_type='std_msgs/msg/Float32')
-           
-        message = {'data': angular_speed}
-     
-        publisher.publish(message)
-        print('mesaj yayınlandı')
-        
-
 
     def get_temperature(self) -> float:
+        """
+        
+        Ortam sicakligini dondurur.
+        
+        """
         
         self.publisher_temp =self.ros_client.create_publisher(topic_name='get_temp_func',message_type='std_msgs/msg/Float32')
 
@@ -250,15 +307,17 @@ class Controller:
         temp_msg = { 'data': 20}
         def callback_temp(msg):
             temp=msg['data']
-            # print("Oda sıcaklığı :{:.2f} ".format(temp))
-            
             self.current_temp = temp
             
         self.publisher_temp.publish(temp_msg)
         
         sub = self.ros_client.create_listener(topic_name='/get_temp', message_type = 'std_msgs/msg/Float32',callback=callback_temp)
+        
         while self.current_temp is None:
             self.get_temperature()
+        
+            raise TimeoutError("Zaman asimi. Lutfen daha sonra tekrar deneyin.") 
+            
         return self.current_temp
 
         
